@@ -1,0 +1,12 @@
+---
+templates:
+  - name: test
+    destination: ./temp/service/test.conf
+
+variables:
+  php_timezone: "Europe/Amsterdam"
+  php_upload_size: "2M" # overwritten by custom.yml
+  php_memory_limit: "2M" # overwritten by enviornment
+
+rules:
+  php_timezone: ["required", "timezone"]
