@@ -3,9 +3,9 @@
 namespace App\Commands;
 
 use App\Repository\ConfigRepository;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Config;
 use LaravelZero\Framework\Commands\Command;
 
 class InitCommand extends Command
