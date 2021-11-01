@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'workdir' => env('CONTAINER_WORKDIR', getcwd())
+    'workdir' => env('CONTAINER_WORKDIR', '/opt/container')
 ];
