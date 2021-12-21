@@ -34,7 +34,7 @@ class InitCommand extends Command
         $templates = $config->get('templates', []);
 
         foreach ($templates as $template) {
-            $this->task("Generate {$template['name']}", function () use ($config, $template) {
+            $this->task("Generate {$template['name']} template", function () use ($config, $template) {
                 $destDir = dirname($config->getPath($template['destination']));
 
                 if (!File::exists($destDir)) {
