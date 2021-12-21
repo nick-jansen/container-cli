@@ -5,7 +5,6 @@ namespace App\Repository;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 
 class ConfigRepository
@@ -22,16 +21,26 @@ class ConfigRepository
 
     public function __construct()
     {
-        if (File::exists($this->getConfigFilePath())) {
-            $this->config = Yaml::parseFile($this->getConfigFilePath());
-        }
-
-        if (File::exists($this->getCustomConfigFilePath())) {
-            $custom = Yaml::parseFile($this->getCustomConfigFilePath());
-            $this->config = array_replace_recursive($this->config, $custom);
+        foreach ($this->getCustomConfigFiles() as $file) {
+            $this->mergeConfig(Yaml::parseFile($file));
         }
 
         $this->validate();
+    }
+
+    public function mergeConfig($config): void
+    {
+        if (is_array($config)) {
+            foreach ($config as $key => $value) {
+                if (is_array($value) && Arr::isAssoc($value)) {
+                    $this->config[$key] = array_replace_recursive($this->config[$key] ?? [], $value);
+                } elseif (is_array($value)) {
+                    $this->config[$key] = array_merge($this->config[$key] ?? [], $value);
+                } else {
+                    $this->config[$key] = $value;
+                }
+            }
+        }
     }
 
     public function get(?string $key = null, $default = null)
@@ -57,14 +66,15 @@ class ConfigRepository
         return str_replace('./', config('container.workdir') . '/', $path);
     }
 
-    public function getConfigFilePath(): string
+    public function getCustomConfigFiles(): array
     {
-        return $this->getPath('./config.yml');
-    }
+        $files = [];
 
-    public function getCustomConfigFilePath(): string
-    {
-        return $this->getPath('./custom.yml');
+        foreach (glob($this->getPath("./*.{yml,yaml}"), GLOB_BRACE) as $file) {
+            $files[] = $file;
+        }
+
+        return $files;
     }
 
     public function validate(): void
