@@ -9,7 +9,11 @@ use Illuminate\Support\Facades\Validator;
 
 class ConfigRepository
 {
-    private array $config = [];
+    private array $config = [
+        'templates' => [],
+        'variables' => [],
+        'rules' => []
+    ];
 
     private array $rules = [
         'templates' => ['array'],
@@ -31,14 +35,20 @@ class ConfigRepository
     public function mergeConfig($config): void
     {
         if (is_array($config)) {
-            foreach ($config as $key => $value) {
-                if (is_array($value) && Arr::isAssoc($value)) {
-                    $this->config[$key] = array_replace_recursive($this->config[$key] ?? [], $value);
-                } elseif (is_array($value)) {
-                    $this->config[$key] = array_merge($this->config[$key] ?? [], $value);
-                } else {
-                    $this->config[$key] = $value;
+            if (array_intersect_key(array_flip(array_keys($this->config)), $config)) {
+                foreach ($config as $key => $value) {
+                    if (array_key_exists($key, $this->config)) {
+                        if (is_array($value) && Arr::isAssoc($value)) {
+                            $this->config[$key] = array_replace_recursive($this->config[$key] ?? [], $value);
+                        } elseif (is_array($value)) {
+                            $this->config[$key] = array_merge($this->config[$key] ?? [], $value);
+                        } else {
+                            $this->config[$key] = $value;
+                        }
+                    }
                 }
+            } else {
+                $this->config['variables'] = array_replace_recursive($this->config['variables'] ?? [], $config);
             }
         }
     }
