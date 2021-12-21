@@ -33,6 +33,10 @@ class InitCommand extends Command
     {
         $templates = $config->get('templates', []);
 
+        foreach ($config->getCustomConfigFiles() as $file) {
+            $this->line("Load $file");
+        }
+
         foreach ($templates as $template) {
             $this->task("Generate {$template['name']} template", function () use ($config, $template) {
                 $destDir = dirname($config->getPath($template['destination']));
