@@ -2,9 +2,11 @@
 
 namespace App\Commands;
 
-use App\Repository\ConfigRepository;
+use Illuminate\Support\Str;
+use Symfony\Component\Yaml\Yaml;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
+use App\Repository\ConfigRepository;
 use Illuminate\Support\Facades\Config;
 use LaravelZero\Framework\Commands\Command;
 
@@ -15,7 +17,7 @@ class InitCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'init';
+    protected $signature = 'init {init-file : Init configuration file} {--extend-file=} {--config-file=}';
 
     /**
      * The description of the command.
@@ -29,15 +31,51 @@ class InitCommand extends Command
      *
      * @return mixed
      */
-    public function handle(ConfigRepository $config)
+    public function handle()
     {
-        $templates = $config->get('templates', []);
+        $config = new ConfigRepository(
+            $this->argument('init-file')
+        );
 
-        foreach ($config->getCustomConfigFiles() as $file) {
-            $this->line("Load $file");
+        foreach (explode(',', $this->option('extend-file')) as $overrideFile) {
+            if (file_exists($overrideFile)) {
+                $this->line("Load $overrideFile");
+                $config->merge(Yaml::parseFile($overrideFile));
+            }
         }
 
-        foreach ($templates as $template) {
+        foreach (explode(',', $this->option('config-file')) as $varsFile) {
+            if (file_exists($varsFile)) {
+                $this->line("Load $varsFile");
+                $config->merge([
+                    'variables' => Yaml::parseFile($varsFile)
+                ]);
+            }
+        }
+
+        $config->validate([
+            'templates' => ['array'],
+            'templates.*.name' => ['required', 'string'],
+            'templates.*.destination' => ['required', 'string'],
+            'variables' => ['array'],
+            'rules' => ['array']
+        ]);
+
+        foreach ($config->get('variables', []) as $varKey => $varValue) {
+            $envKey = Str::upper(Str::snake($varKey));
+            $config->merge([
+                'variables' => [
+                    $varKey => env($envKey, $varValue)
+                ]
+            ]);
+        }
+
+        $config->validate(
+            $config->get('rules', []),
+            'variables'
+        );
+
+        foreach ($config->get('templates', []) as $template) {
             $this->task("Generate {$template['name']} template", function () use ($config, $template) {
                 $destDir = dirname($config->getPath($template['destination']));
 

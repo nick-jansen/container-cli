@@ -4,8 +4,8 @@ namespace App\Commands;
 
 use Exception;
 use Symfony\Component\Yaml\Yaml;
+use App\Repository\ConfigRepository;
 use Symfony\Component\Process\Process;
-use App\Repository\LocalConfigRepository;
 use LaravelZero\Framework\Commands\Command;
 
 class PullCommand extends Command
@@ -15,7 +15,7 @@ class PullCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'pull {--wp}';
+    protected $signature = 'pull {--f|file=config.yml : Pull configuration file} {--wp}';
 
     /**
      * The description of the command.
@@ -29,8 +29,13 @@ class PullCommand extends Command
      *
      * @return mixed
      */
-    public function handle(LocalConfigRepository $config)
+    public function handle()
     {
+        $config = new ConfigRepository(
+            $this->option('file'),
+            true
+        );
+
         $config->validate(array_merge([
             'pull.exclude' => ['array'],
             'remote.path' => ['required', 'string'],

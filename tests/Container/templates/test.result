@@ -1,0 +1,4 @@
+php_timezone = Europe/Amsterdam
+php_upload_size = 32M
+php_memory_limit = 256M
+php_mail_log = /home/runtime/logs/mail.log

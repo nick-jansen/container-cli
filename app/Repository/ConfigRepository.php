@@ -3,64 +3,67 @@
 namespace App\Repository;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 use Illuminate\Support\Facades\Validator;
 
 class ConfigRepository
 {
-    private array $config = [
-        'templates' => [],
-        'variables' => [],
-        'rules' => []
+    public string $file;
+
+    private array $config = [];
+
+    private array $defaults = [
+        'local' => [
+            'path' => '',
+            'url' => '',
+            'database' => [
+                'host' => '',
+                'name' => '',
+                'user' => '',
+                'password' => '',
+            ],
+            'wordpress' => [
+                'cli_path' => 'wp'
+            ]
+        ],
+        'remote' => [
+            'path' => '',
+            'host' => '',
+            'port' => 22,
+            'user' => 'root',
+            'url' => '',
+            'wordpress' => [
+                'cli_path' => 'wp'
+            ]
+        ],
+        'pull' => [
+            'exclude' => []
+        ]
     ];
 
-    private array $rules = [
-        'templates' => ['array'],
-        'templates.*.name' => ['required', 'string'],
-        'templates.*.destination' => ['required', 'string'],
-        'variables' => ['array'],
-        'rules' => ['array']
-    ];
-
-    public function __construct()
+    public function __construct(string $configFile, bool $mergeDefaults = false)
     {
-        foreach ($this->getCustomConfigFiles() as $file) {
-            $this->mergeConfig(Yaml::parseFile($file));
+        $this->file = realpath($configFile) ?: $configFile;
+
+        if (!file_exists($this->file)) {
+            abort(1, "Could not load configuration file [{$this->file}]");
         }
 
-        $this->validate();
-    }
+        $this->config = Yaml::parseFile($this->file);
 
-    public function mergeConfig($config): void
-    {
-        if (is_array($config)) {
-            if (array_intersect_key(array_flip(array_keys($this->config)), $config)) {
-                foreach ($config as $key => $value) {
-                    if (array_key_exists($key, $this->config)) {
-                        if (is_array($value) && Arr::isAssoc($value)) {
-                            $this->config[$key] = array_replace_recursive($this->config[$key] ?? [], $value);
-                        } elseif (is_array($value)) {
-                            $this->config[$key] = array_merge($this->config[$key] ?? [], $value);
-                        } else {
-                            $this->config[$key] = $value;
-                        }
-                    }
-                }
-            } else {
-                $this->config['variables'] = array_replace_recursive($this->config['variables'] ?? [], $config);
-            }
+        if ($mergeDefaults) {
+            $this->config = array_replace_recursive(
+                $this->defaults,
+                $this->config
+            );
+
+            $this->config['local']['path'] = getcwd() . '/public';
         }
     }
 
     public function get(?string $key = null, $default = null)
     {
         $config = $this->config;
-
-        foreach ($config['variables'] ?? [] as $varKey => $varValue) {
-            $envKey = Str::upper(Str::snake($varKey));
-            $config['variables'][$varKey] = env($envKey, $varValue);
-        }
 
         if ($key) {
             return Arr::get($config, $key, $default);
@@ -71,27 +74,14 @@ class ConfigRepository
 
     public function getPath(string $path = ''): string
     {
-        $path = str_replace('~/', getenv("HOME") . '/', $path);
-
-        return str_replace('./', config('container.workdir') . '/', $path);
+        return str_replace('./', dirname($this->file) . '/', $path);
     }
 
-    public function getCustomConfigFiles(): array
-    {
-        $files = [];
-
-        foreach (glob($this->getPath("./*.{yml,yaml}"), GLOB_BRACE) as $file) {
-            $files[] = $file;
-        }
-
-        return $files;
-    }
-
-    public function validate(): void
+    public function validate(array $rules, string $key = null)
     {
         $validator = Validator::make(
-            $this->get(),
-            $this->rules,
+            $this->get($key, []),
+            $rules,
             config('validation')
         );
 
@@ -102,27 +92,22 @@ class ConfigRepository
         if (count($validationErrors ?? [])) {
             abort(1, implode(PHP_EOL, $validationErrors));
         }
-
-        $this->validateVariables();
     }
 
-    public function validateVariables(): void
+    public function merge($config): void
     {
-        $rules = $this->get('rules', []);
-
-        $validator = Validator::make(
-            $this->get('variables', []),
-            $rules,
-            config('validation'),
-            $attributes ?? []
-        );
-
-        foreach ($validator->errors()->all() as $error) {
-            $validationErrors[] = $error;
-        }
-
-        if (count($validationErrors ?? [])) {
-            abort(1, implode(PHP_EOL, $validationErrors));
+        if (is_array($config)) {
+            foreach ($config as $key => $value) {
+                if (array_key_exists($key, $this->config)) {
+                    if (is_array($value) && Arr::isAssoc($value)) {
+                        $this->config[$key] = array_replace_recursive($this->config[$key] ?? [], $value);
+                    } elseif (is_array($value)) {
+                        $this->config[$key] = array_merge($this->config[$key] ?? [], $value);
+                    } else {
+                        $this->config[$key] = $value;
+                    }
+                }
+            }
         }
     }
 }

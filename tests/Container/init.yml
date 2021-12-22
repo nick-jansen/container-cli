@@ -6,7 +6,8 @@ templates:
 variables:
   php_timezone: "Europe/Amsterdam"
   php_upload_size: "2M" # overwritten by custom.yml
-  php_memory_limit: "2M" # overwritten by enviornment
+  php_memory_limit: "2M" # overwritten by environment
+  php_mail_log: "" # overwritten by variables.yml
 
 rules:
   php_timezone: ["required", "timezone"]
